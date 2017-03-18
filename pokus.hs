@@ -20,28 +20,9 @@ import Text.HandsomeSoup
 import Text.ICalendar
 import Text.XML.HXT.Core
 
--- import Text.HTML.TagSoup
--- import Text.StringLike (StringLike)
-
 import CachingGet (getCached)
 import TimeHelper (readDate)
 
--- is :: StringLike str => String -> Tag str -> Bool
--- is = flip (~==)
---
--- isNot :: StringLike str => String -> Tag str -> Bool
--- isNot = flip (~/=)
---
--- eventLinks :: [Tag BSL.ByteString] -> [BSL.ByteString]
--- eventLinks = map (fromAttrib "href"
---         . head . head
---         . partitions (is "<a>"))
---     . partitions (is "<div class=\"event element mod boxed cal\">")
---
--- x = do
---     soup <- parseTags <$> getCached "http://www.mestohudby.cz/calendar/all/list"
---     mapM_ print $ eventLinks soup
---     return soup
 
 getDoc url = parseHtml' <$> getCached url
   where
@@ -178,8 +159,3 @@ musicEvent2VEvent MusicEvent{..} = VEvent
     , veAlarms = def
     , veOther = def
     }
-
----
-
--- BSL8.putStrLn $ (Text.ICalendar.printICalendar def def{vcEvents = singleton ("tralala", Nothing) VEvent {}})
--- BSL8.putStrLn $ (Text.ICalendar.printICalendar def def{vcEvents = singleton ("tralala", Nothing) $ musicEvent2VEvent exampleMusicEvent})
