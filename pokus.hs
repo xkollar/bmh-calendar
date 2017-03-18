@@ -92,21 +92,6 @@ data MusicEvent = MusicEvent
     }
   deriving Show
 
-exampleMusicEvent :: MusicEvent
-exampleMusicEvent = MusicEvent
-    { meCreated = read "1970-01-01 00:00:00"
-    , meSummary = "Těžkej Pokondr"
-    , meStart = read "2017-11-23 19:00:00"
-    , meUid = "sono-centrum/event-9874"
-    , meUrl = fromJust $ parseURI "http://www.mestohudby.cz/calendar/sono-centrum/event-9874"
-    , meGenres = ["rock", "pop", "ostatni"]
-    , mePlace = "Sono Centrum"
-    , meAddress = "Veveří 113, Brno"
-    , meDescription =
-        "Miloš Pokorný(1964) a Roman Ondráček(1966) odstartovali svou kariéru\
-        \ v roce 1991 na Bonton rádiu…"
-    }
-
 musicEvent2VEvent :: MusicEvent -> VEvent
 musicEvent2VEvent MusicEvent{..} = VEvent
     { veDTStamp = DTStamp meCreated def
