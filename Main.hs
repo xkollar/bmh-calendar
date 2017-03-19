@@ -9,20 +9,22 @@ import Data.Maybe
 import Data.Monoid ((<>))
 import Data.String (fromString)
 
+import Data.Acid
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.ByteString.Lazy.Char8 as BSL8
 import Data.Default (def)
+import qualified Data.Map.Lazy as Map
+import qualified Data.Set as Set
 import Data.Text (Text)
+import qualified Data.Text.Lazy as Lazy (Text)
 import qualified Data.Text.Lazy as Text.Lazy (unpack)
-import qualified Data.Text.Lazy.Encoding as Text.Lazy (decodeUtf8)
-import Data.Time (getCurrentTime, UTCTime, LocalTime)
+import qualified Data.Text.Lazy.Encoding as Text.Lazy (encodeUtf8, decodeUtf8)
+import Data.Time (LocalTime, UTCTime, getCurrentTime)
+import Data.Typeable
 import Network.URI (URI, parseURI)
 import Text.HandsomeSoup
 import Text.ICalendar
 import Text.XML.HXT.Core
-
-import Data.Acid
-import Data.Typeable
 
 import CachingGet (getCached)
 import EventStore
@@ -146,4 +148,15 @@ main = withEventStore $ \ st -> do
             nextPageUrl <- fmap (lookup "další") . runX
                 $ doc >>> css ".pager a" >>> (deep getText &&& getAttrValue "href")
             mapM_ f nextPageUrl
-    f "http://www.mestohudby.cz/calendar/all/list"
+    -- f "http://www.mestohudby.cz/calendar/all/list"
+    es <- query st GetEvents
+    -- es <- take 1 . drop 122 <$> query st GetEvents
+    print $ length es
+    BSL.writeFile "bmh.ical" . printICalendar def $ def
+        { vcEvents = Map.fromList $ map (\ e -> ((fromString $ meUid e :: Lazy.Text, Nothing) , musicEvent2VEvent e)) es
+        , vcOther = Set.singleton OtherProperty
+            { otherName = "X-WR-CALNAME"
+            , otherValue = Text.Lazy.encodeUtf8 "Brno – město hudby"
+            , otherParams = def
+            }
+        }

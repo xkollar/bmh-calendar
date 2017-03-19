@@ -31,7 +31,8 @@ import MusicEvent
 
 data EventStore = EventStore
     { events :: !(Map Uid MusicEvent)
-    , dates :: !(Set (FstOrd LocalTime Uid))
+    , uidsAndDates :: !(Set (FstOrd LocalTime Uid))
+    , uidsByGenre :: !(Map String (Set Uid))
     }
 
 deriveSafeCopy 0 'base ''EventStore
@@ -39,7 +40,8 @@ deriveSafeCopy 0 'base ''EventStore
 emptyStore :: EventStore
 emptyStore = EventStore
     { events = Map.empty
-    , dates = Set.empty
+    , uidsAndDates = Set.empty
+    , uidsByGenre = Map.empty
     }
 
 insertEvent :: MusicEvent -> Update EventStore ()
@@ -47,7 +49,7 @@ insertEvent e@MusicEvent{..} = modify go
   where
     go st@EventStore{..} = st
         { events = Map.insert meUid e events
-        , dates = Set.insert (FstOrd meStart meUid) dates
+        , uidsAndDates = Set.insert (FstOrd meStart meUid) uidsAndDates
         }
 
 getEvents :: Query EventStore [MusicEvent]
