@@ -38,7 +38,14 @@ import EventStore
     , IsEvent(IsEvent)
     , withEventStore
     )
-import MusicEvent (MusicEvent(..), Uid)
+import MusicEvent
+    ( CreateMusicEvent
+    , Genre
+    , GenreKey
+    , MusicEvent(..)
+    , RetrievedMusicEvent
+    , Uid
+    )
 import TimeHelper (readDate)
 
 
@@ -49,11 +56,11 @@ getDoc url = parseHtml' <$> getCached url
 url2uid :: String -> Uid
 url2uid = reverse . takeWhile isDigit . reverse
 
-fetchEvent :: String -> IO MusicEvent
+fetchEvent :: String -> IO CreateMusicEvent
 fetchEvent url = do
     doc <- getDoc url
     let extractWith e f = fmap e . runX $ doc >>> f
-        extract' = extractWith (fromMaybe "unknown" . listToMaybe)
+        extract' = extractWith (fromMaybe "Neuvedeno" . listToMaybe)
         extract = extractWith id
     mkMusicEvent
         <$> getCurrentTime
@@ -83,9 +90,10 @@ fetchEvent url = do
         , meDescription = dsc
         }
 
-    mkPlace = maybe "unspecified" snd . lookup "Lokace"
+    mkPlace = maybe ("unspecified", "Neuvedeno") (first cutGenre) . lookup "Lokace"
 
-    mkGenres = map (cutGenre . fst . snd) . filter (("Žánr"==) . fst)
+    mkGenres :: [(String,(String,String))] -> [(GenreKey, Genre)]
+    mkGenres = map (first cutGenre . snd) . filter (("Žánr"==) . fst)
 
     cutGenre = reverse . takeWhile ('/'/=) . reverse
 
@@ -96,7 +104,7 @@ addEvent st url = do
         putStrLn $ "Fetching & storing event " <> url
         fetchEvent url >>= update st . InsertEvent
 
-musicEvent2VEvent :: MusicEvent -> VEvent
+musicEvent2VEvent :: RetrievedMusicEvent -> VEvent
 musicEvent2VEvent MusicEvent{..} = VEvent
     { veDTStamp = DTStamp meCreated def
     , veUID = UID (fromString meUid) def
@@ -156,10 +164,11 @@ main = withEventStore $ \ st -> do
             links <- runX $ doc >>> css ".event h2 a" ! "href"
             mapM_ (addEvent st) links
             nextPageUrl <- fmap (lookup "další") . runX $ doc >>> pagerLinks
+            -- mapM_ print nextPageUrl
             mapM_ f nextPageUrl
     f "http://www.mestohudby.cz/calendar/all/list"
     (from, to) <- (mkFrom &&& mkTo) . utctDay <$> getCurrentTime
-    es <- query st $ GetEvents (Just from) (Just to)
+    es <- query st $ GetEvents (Just from) (Just to) [] []
     print $ length es
     BSL8.writeFile "bmh.ical" . printICalendar def $ def
         { vcEvents = Map.mapKeysMonotonic (flip (,) Nothing . fromString)

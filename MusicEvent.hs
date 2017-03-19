@@ -6,7 +6,15 @@
 module MusicEvent
     ( Uid
     , Genre
+    , GenreKey
+    , Place
+    , PlaceKey
+    -- * MusicEvent
     , MusicEvent(..)
+    -- ** MusicEvent for various occasions
+    , CreateMusicEvent
+    , RetrievedMusicEvent
+    , StoredMusicEvent
     )
   where
 
@@ -24,17 +32,29 @@ type Uid = String
 
 type Genre = String
 
-data MusicEvent = MusicEvent
+type GenreKey = String
+
+type Place = String
+
+type PlaceKey = String
+
+data MusicEvent genre place = MusicEvent
     { meCreated :: !UTCTime
     , meSummary :: !String
     , meStart :: !LocalTime
     , meUid :: !Uid
     , meUrl :: !URI
-    , meGenres :: !([Genre]) -- Like ["klasicka-hudba", "pop"]
-    , mePlace :: !String -- Like "Sono centrum"
+    , meGenres :: ![genre]
+    , mePlace :: !place
     , meAddress :: !String -- Like "Veveri 123, Brno"
     , meDescription :: !String
     }
   deriving (Show, Typeable)
 
 deriveSafeCopy 0 'base ''MusicEvent
+
+type CreateMusicEvent = MusicEvent (GenreKey, Genre) (PlaceKey, Place)
+
+type RetrievedMusicEvent = MusicEvent Genre Place
+
+type StoredMusicEvent = MusicEvent GenreKey PlaceKey
