@@ -24,34 +24,10 @@ import Text.XML.HXT.Core
 import Data.Acid
 import Data.Typeable
 
--- import Database.HDBC
--- import Database.HDBC.Sqlite3
-
 import CachingGet (getCached)
 import MusicEvent (MusicEvent(..))
 import TimeHelper (readDate)
 
-
--- dbTest = woo
---
--- prepDB :: IConnection conn => conn -> IO ()
--- prepDB dbh =
---     do tables <- getTables dbh
---        when (not ("events" `elem` tables)) $
---            do run dbh "CREATE TABLE events (\
---                        \castid INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,\
---                        \castURL TEXT NOT NULL UNIQUE)" []
---               return ()
---        when (not ("episodes" `elem` tables)) $
---            do run dbh "CREATE TABLE episodes (\
---                        \epid INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,\
---                        \epcastid INTEGER NOT NULL,\
---                        \epurl TEXT NOT NULL,\
---                        \epdone INTEGER NOT NULL,\
---                        \UNIQUE(epcastid, epurl),\
---                        \UNIQUE(epcastid, epid))" []
---               return ()
---        commit dbh
 
 getDoc url = parseHtml' <$> getCached url
   where
