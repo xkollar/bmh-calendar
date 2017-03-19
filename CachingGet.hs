@@ -3,16 +3,15 @@ module CachingGet (getCached) where
 
 import Data.Monoid ((<>))
 
-import Control.Lens as Lens ((&), (.~), (^.))
+import Control.Lens ((&), (.~), (^.))
 import Crypto.Hash.SHA1 (hash)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Char8 as BS8
 import qualified Data.ByteString.Lazy as BSL
 import Network.Wreq
-import Network.Wreq.Lens
+    (Options, checkStatus, cookies, defaults, getWith, headers, responseBody)
 import System.Directory (createDirectoryIfMissing, doesFileExist)
-import System.FilePath
-import Text.HTML.TagSoup
+import System.FilePath ((</>))
 import Text.Printf (printf)
 
 import Delayed (delayed)
@@ -25,13 +24,10 @@ myOpts = defaults
   where
     noCheck = Just $ \ _ _ _ -> Nothing
 
+myGet :: String -> IO BSL.ByteString
 myGet url = do
     res <- getWith myOpts url
     pure $ res ^. responseBody
-
-x = do
-    res <- getWith myOpts "http://www.mestohudby.cz/calendar/all/list"
-    pure $ parseTags (res ^. responseBody)
 
 cacheDir :: FilePath
 cacheDir = "web_cache"

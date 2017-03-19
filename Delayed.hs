@@ -1,7 +1,7 @@
 module Delayed (delayed) where
 
-import Control.Concurrent
-import Control.Concurrent.MVar
+import Control.Concurrent (threadDelay)
+import Control.Concurrent.MVar (MVar, newMVar, putMVar, takeMVar)
 import Control.Exception.Base (evaluate)
 import Data.Monoid ((<>))
 import System.IO.Unsafe

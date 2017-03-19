@@ -2,6 +2,7 @@
 {-# LANGUAGE RecordWildCards #-}
 
 import Control.Arrow
+import Control.Monad
 import Data.Char (isDigit)
 import Data.List
 import Data.Maybe
@@ -20,9 +21,37 @@ import Text.HandsomeSoup
 import Text.ICalendar
 import Text.XML.HXT.Core
 
+import Data.Acid
+import Data.Typeable
+
+-- import Database.HDBC
+-- import Database.HDBC.Sqlite3
+
 import CachingGet (getCached)
+import MusicEvent (MusicEvent(..))
 import TimeHelper (readDate)
 
+
+-- dbTest = woo
+--
+-- prepDB :: IConnection conn => conn -> IO ()
+-- prepDB dbh =
+--     do tables <- getTables dbh
+--        when (not ("events" `elem` tables)) $
+--            do run dbh "CREATE TABLE events (\
+--                        \castid INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,\
+--                        \castURL TEXT NOT NULL UNIQUE)" []
+--               return ()
+--        when (not ("episodes" `elem` tables)) $
+--            do run dbh "CREATE TABLE episodes (\
+--                        \epid INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,\
+--                        \epcastid INTEGER NOT NULL,\
+--                        \epurl TEXT NOT NULL,\
+--                        \epdone INTEGER NOT NULL,\
+--                        \UNIQUE(epcastid, epurl),\
+--                        \UNIQUE(epcastid, epid))" []
+--               return ()
+--        commit dbh
 
 getDoc url = parseHtml' <$> getCached url
   where
@@ -78,19 +107,6 @@ fetchEvent url = do
     mkGenres = map (cutGenre . fst . snd) . filter (("Žánr"==) . fst)
 
     cutGenre = reverse . takeWhile ('/'/=) . reverse
-
-data MusicEvent = MusicEvent
-    { meCreated :: UTCTime
-    , meSummary :: String
-    , meStart :: LocalTime
-    , meUid :: String -- Most likely just number, or place"/"number
-    , meUrl :: URI
-    , meGenres :: [String] -- Like ["klasicka-hudba", "pop"]
-    , mePlace :: String -- Like "Sono centrum"
-    , meAddress :: String -- Like "Veveri 123, Brno"
-    , meDescription :: String
-    }
-  deriving Show
 
 musicEvent2VEvent :: MusicEvent -> VEvent
 musicEvent2VEvent MusicEvent{..} = VEvent
