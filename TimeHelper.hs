@@ -21,7 +21,8 @@ import Text.ParserCombinators.ReadP
 import Text.Read (Read, read, reads)
 import Text.Show (show)
 
-import Data.Time (Day, LocalTime(..), midnight)
+import Data.Time
+    (Day, LocalTime(LocalTime, localDay, localTimeOfDay), midnight)
 
 trim :: String -> String
 trim = dropWhile isSpace . dropWhileEnd isSpace

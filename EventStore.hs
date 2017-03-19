@@ -6,7 +6,6 @@ module EventStore where
 import Control.Monad.Catch (bracket)
 import Control.Monad.Reader (asks)
 import Control.Monad.State (modify)
-import Data.Maybe (fromMaybe)
 
 import Data.Acid
     ( AcidState
@@ -22,7 +21,7 @@ import qualified Data.Map.Strict as Map
 import Data.SafeCopy (base, deriveSafeCopy)
 import Data.Set (Set)
 import qualified Data.Set as Set
-import Data.Time (Day, LocalTime(..), midnight)
+import Data.Time (Day, LocalTime(..))
 
 import TimeHelper (midnightOf)
 import FstOrd (FstOrd(FstOrd, _snd))
@@ -74,8 +73,6 @@ getEvents from to = asks go
         limmitByDate = Map.filterWithKey (\ k _ -> Set.member k uids)
 
         uids = Set.map _snd $ between from' to' uidsAndDates
-
-    cut f = maybe id $ \ x -> f . Set.split x
 
     mk :: LocalTime -> FstOrd LocalTime Uid
     mk = flip FstOrd ""

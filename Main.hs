@@ -15,19 +15,29 @@ import qualified Data.ByteString.Lazy.Char8 as BSL8
 import Data.Default (def)
 import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
-import Data.Text (Text)
-import qualified Data.Text.Lazy as Lazy (Text)
 import qualified Data.Text.Lazy as Text.Lazy (unpack)
 import qualified Data.Text.Lazy.Encoding as Text.Lazy (encodeUtf8, decodeUtf8)
-import Data.Time (LocalTime, UTCTime, addDays, addGregorianMonthsRollOver, fromGregorian, getCurrentTime, toGregorian, utctDay, addGregorianMonthsClip)
-import Data.Typeable
-import Network.URI (URI, parseURI)
+import Data.Time
+    ( addDays
+    , addGregorianMonthsClip
+    , fromGregorian
+    , getCurrentTime
+    , toGregorian
+    , utctDay
+    )
+import Network.URI (parseURI)
 import Text.HandsomeSoup
 import Text.ICalendar
-import Text.XML.HXT.Core
+import Text.XML.HXT.Core hiding (multi)
 
 import CachingGet (getCached)
 import EventStore
+    ( EventStore
+    , GetEvents(GetEvents)
+    , InsertEvent(InsertEvent)
+    , IsEvent(IsEvent)
+    , withEventStore
+    )
 import MusicEvent (MusicEvent(..), Uid)
 import TimeHelper (readDate)
 
@@ -147,7 +157,6 @@ main = withEventStore $ \ st -> do
             mapM_ (addEvent st) links
             nextPageUrl <- fmap (lookup "další") . runX $ doc >>> pagerLinks
             mapM_ f nextPageUrl
-            -- mapM_ print nextPageUrl
     f "http://www.mestohudby.cz/calendar/all/list"
     (from, to) <- (mkFrom &&& mkTo) . utctDay <$> getCurrentTime
     es <- query st $ GetEvents (Just from) (Just to)
