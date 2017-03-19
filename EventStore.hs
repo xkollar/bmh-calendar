@@ -45,12 +45,18 @@ emptyStore = EventStore
 insertEvent :: MusicEvent -> Update EventStore ()
 insertEvent e@MusicEvent{..} = modify go
   where
-    go st@EventStore{..} = st {events = Map.insert meUid e events}
+    go st@EventStore{..} = st
+        { events = Map.insert meUid e events
+        , dates = Set.insert (FstOrd meStart meUid) dates
+        }
+
+getEvents :: Query EventStore [MusicEvent]
+getEvents = asks $ Map.elems . events
 
 isEvent :: Uid -> Query EventStore Bool
 isEvent u = asks $ Map.member u . events
 
-makeAcidic ''EventStore ['insertEvent, 'isEvent]
+makeAcidic ''EventStore ['getEvents, 'insertEvent, 'isEvent]
 
 withEventStore :: (AcidState EventStore -> IO ()) -> IO ()
 withEventStore = bracket acquire release

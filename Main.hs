@@ -37,34 +37,6 @@ getDoc url = parseHtml' <$> getCached url
 url2uid :: String -> Uid
 url2uid = reverse . takeWhile isDigit . reverse
 
-addEvent :: AcidState EventStore -> String -> IO ()
-addEvent st url = do
-    b <- query st . IsEvent $ url2uid url
-    unless b $ do
-        putStrLn $ "Fetching event " <> url
-        fetchEvent url >>= update st . InsertEvent
-
-ex = withEventStore $ \ st -> do
-    let f url = do
-            doc <- getDoc url
-            links <- runX $ doc >>> css ".event h2 a" ! "href"
-            mapM_ (addEvent st) links
-            nextPageUrl <- fmap (lookup "další") . runX
-                $ doc >>> css ".pager a" >>> (deep getText &&& getAttrValue "href")
-            mapM_ f nextPageUrl
-    f "http://www.mestohudby.cz/calendar/all/list"
-
-exampfel :: IO ()
-exampfel = f "http://www.mestohudby.cz/calendar/all/list" where
-    f url = do
-        doc <- getDoc url
-        links <- runX $ doc >>> css ".event h2 a" ! "href"
-        mapM_ putStrLn $ sort links
-        mapM_ fetchEvent links
-        nextPageUrl <- fmap (lookup "další") . runX
-            $ doc >>> css ".pager a" >>> (deep getText &&& getAttrValue "href")
-        mapM_ f nextPageUrl
-
 fetchEvent :: String -> IO MusicEvent
 fetchEvent url = do
     doc <- getDoc url
@@ -104,6 +76,13 @@ fetchEvent url = do
     mkGenres = map (cutGenre . fst . snd) . filter (("Žánr"==) . fst)
 
     cutGenre = reverse . takeWhile ('/'/=) . reverse
+
+addEvent :: AcidState EventStore -> String -> IO ()
+addEvent st url = do
+    b <- query st . IsEvent $ url2uid url
+    unless b $ do
+        putStrLn $ "Fetching event " <> url
+        fetchEvent url >>= update st . InsertEvent
 
 musicEvent2VEvent :: MusicEvent -> VEvent
 musicEvent2VEvent MusicEvent{..} = VEvent
@@ -157,3 +136,14 @@ musicEvent2VEvent MusicEvent{..} = VEvent
     , veAlarms = def
     , veOther = def
     }
+
+main :: IO ()
+main = withEventStore $ \ st -> do
+    let f url = do
+            doc <- getDoc url
+            links <- runX $ doc >>> css ".event h2 a" ! "href"
+            mapM_ (addEvent st) links
+            nextPageUrl <- fmap (lookup "další") . runX
+                $ doc >>> css ".pager a" >>> (deep getText &&& getAttrValue "href")
+            mapM_ f nextPageUrl
+    f "http://www.mestohudby.cz/calendar/all/list"
