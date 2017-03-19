@@ -93,7 +93,7 @@ addEvent :: AcidState EventStore -> String -> IO ()
 addEvent st url = do
     b <- query st . IsEvent $ url2uid url
     unless b $ do
-        putStrLn $ "Fetching event " <> url
+        putStrLn $ "Fetching & storing event " <> url
         fetchEvent url >>= update st . InsertEvent
 
 musicEvent2VEvent :: MusicEvent -> VEvent
@@ -161,7 +161,7 @@ main = withEventStore $ \ st -> do
     (from, to) <- (mkFrom &&& mkTo) . utctDay <$> getCurrentTime
     es <- query st $ GetEvents (Just from) (Just to)
     print $ length es
-    BSL.writeFile "bmh.ical" . printICalendar def $ def
+    BSL8.writeFile "bmh.ical" . printICalendar def $ def
         { vcEvents = Map.mapKeysMonotonic (flip (,) Nothing . fromString)
             $ Map.map musicEvent2VEvent es
         , vcOther = Set.singleton OtherProperty
@@ -171,11 +171,10 @@ main = withEventStore $ \ st -> do
             }
         }
   where
-
     setGregorianDay d = (\ (y, m, _) -> fromGregorian y m d) . toGregorian
 
     mkFrom = setGregorianDay 1 . addDays (-7)
 
-    mkTo = setGregorianDay 31 . addGregorianMonthsClip 1
+    mkTo = setGregorianDay 31 . addDays 14
 
     pagerLinks = css ".pager a" >>> (deep getText &&& getAttrValue "href")
