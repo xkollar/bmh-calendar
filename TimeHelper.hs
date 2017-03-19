@@ -1,5 +1,10 @@
 {-# LANGUAGE NoImplicitPrelude #-}
-module TimeHelper (readDate, readDate') where
+module TimeHelper
+    ( readDate
+    , readDate'
+    , midnightOf
+    )
+  where
 
 import Control.Applicative ((<*), (<*>), pure)
 import Control.Monad (Monad, (>>=), fail, return)
@@ -16,7 +21,7 @@ import Text.ParserCombinators.ReadP
 import Text.Read (Read, read, reads)
 import Text.Show (show)
 
-import Data.Time (LocalTime)
+import Data.Time (Day, LocalTime(..), midnight)
 
 trim :: String -> String
 trim = dropWhile isSpace . dropWhileEnd isSpace
@@ -62,3 +67,10 @@ readDate s = case readP_to_S (dateP <* eof) $ trim s of
 
 readDate' :: String -> LocalTime
 readDate' = fromMaybe (read "1970-01-01 00:00:00") . readDate
+
+midnightOf :: Day -> LocalTime
+midnightOf d = LocalTime
+    { localDay = d
+    , localTimeOfDay = midnight
+    }
+

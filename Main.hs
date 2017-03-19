@@ -19,7 +19,7 @@ import Data.Text (Text)
 import qualified Data.Text.Lazy as Lazy (Text)
 import qualified Data.Text.Lazy as Text.Lazy (unpack)
 import qualified Data.Text.Lazy.Encoding as Text.Lazy (encodeUtf8, decodeUtf8)
-import Data.Time (LocalTime, UTCTime, getCurrentTime)
+import Data.Time (LocalTime, UTCTime, addDays, addGregorianMonthsRollOver, fromGregorian, getCurrentTime, toGregorian, utctDay, addGregorianMonthsClip)
 import Data.Typeable
 import Network.URI (URI, parseURI)
 import Text.HandsomeSoup
@@ -146,10 +146,11 @@ main = withEventStore $ \ st -> do
             links <- runX $ doc >>> css ".event h2 a" ! "href"
             mapM_ (addEvent st) links
             nextPageUrl <- fmap (lookup "další") . runX $ doc >>> pagerLinks
-            -- mapM_ f nextPageUrl
-            mapM_ print nextPageUrl
+            mapM_ f nextPageUrl
+            -- mapM_ print nextPageUrl
     f "http://www.mestohudby.cz/calendar/all/list"
-    es <- query st AllEvents
+    (from, to) <- (mkFrom &&& mkTo) . utctDay <$> getCurrentTime
+    es <- query st $ GetEvents (Just from) (Just to)
     print $ length es
     BSL.writeFile "bmh.ical" . printICalendar def $ def
         { vcEvents = Map.mapKeysMonotonic (flip (,) Nothing . fromString)
@@ -161,4 +162,11 @@ main = withEventStore $ \ st -> do
             }
         }
   where
+
+    setGregorianDay d = (\ (y, m, _) -> fromGregorian y m d) . toGregorian
+
+    mkFrom = setGregorianDay 1 . addDays (-7)
+
+    mkTo = setGregorianDay 31 . addGregorianMonthsClip 1
+
     pagerLinks = css ".pager a" >>> (deep getText &&& getAttrValue "href")
