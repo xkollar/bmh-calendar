@@ -13,7 +13,7 @@ import Data.Acid
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.ByteString.Lazy.Char8 as BSL8
 import Data.Default (def)
-import qualified Data.Map.Lazy as Map
+import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
 import Data.Text (Text)
 import qualified Data.Text.Lazy as Lazy (Text)
@@ -145,18 +145,20 @@ main = withEventStore $ \ st -> do
             doc <- getDoc url
             links <- runX $ doc >>> css ".event h2 a" ! "href"
             mapM_ (addEvent st) links
-            nextPageUrl <- fmap (lookup "další") . runX
-                $ doc >>> css ".pager a" >>> (deep getText &&& getAttrValue "href")
-            mapM_ f nextPageUrl
-    -- f "http://www.mestohudby.cz/calendar/all/list"
-    es <- query st GetEvents
-    -- es <- take 1 . drop 122 <$> query st GetEvents
+            nextPageUrl <- fmap (lookup "další") . runX $ doc >>> pagerLinks
+            -- mapM_ f nextPageUrl
+            mapM_ print nextPageUrl
+    f "http://www.mestohudby.cz/calendar/all/list"
+    es <- query st AllEvents
     print $ length es
     BSL.writeFile "bmh.ical" . printICalendar def $ def
-        { vcEvents = Map.fromList $ map (\ e -> ((fromString $ meUid e :: Lazy.Text, Nothing) , musicEvent2VEvent e)) es
+        { vcEvents = Map.mapKeysMonotonic (flip (,) Nothing . fromString)
+            $ Map.map musicEvent2VEvent es
         , vcOther = Set.singleton OtherProperty
             { otherName = "X-WR-CALNAME"
             , otherValue = Text.Lazy.encodeUtf8 "Brno – město hudby"
             , otherParams = def
             }
         }
+  where
+    pagerLinks = css ".pager a" >>> (deep getText &&& getAttrValue "href")
