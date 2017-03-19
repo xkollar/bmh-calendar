@@ -1,10 +1,20 @@
+{-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies #-}
 module EventStore where
 
+import Control.Monad ((>>))
+import Data.Bool (Bool)
+import Data.Function (($), (.), flip, id)
+import Data.Functor ((<$>), fmap)
+import Data.List (foldr)
+import Data.Maybe (Maybe, maybe)
 import Data.Monoid ((<>))
+import Data.Ord (Ord)
 import Data.String (fromString)
+import Data.Tuple (fst, snd, uncurry)
+import System.IO (IO)
 
 import Control.Monad.Catch (bracket)
 import Control.Monad.Reader (asks)
@@ -24,17 +34,17 @@ import qualified Data.Map.Strict as Map
 import Data.SafeCopy (base, deriveSafeCopy)
 import Data.Set (Set)
 import qualified Data.Set as Set
-import Data.Time (Day, LocalTime(..))
+import Data.Time (Day, LocalTime)
 
 import FstOrd (FstOrd(FstOrd, _snd))
 import MusicEvent
     ( CreateMusicEvent
-    , RetrievedMusicEvent
     , Genre
     , GenreKey
-    , MusicEvent(..)
+    , MusicEvent(MusicEvent, meGenres, mePlace, meStart, meUid)
     , Place
     , PlaceKey
+    , RetrievedMusicEvent
     , StoredMusicEvent
     , Uid
     )
@@ -76,7 +86,7 @@ insertEvent e@MusicEvent{..} = modify go
 
     addUidTo g m = Map.insertWith (Set.union) g (Set.singleton meUid) m
 
-    gs = map fst meGenres
+    gs = fst <$> meGenres
 
     placeId = fst mePlace
 
@@ -100,16 +110,37 @@ getEvents
     -> [GenreKey]
     -- ^ Genres to exclude
     -> Query EventStore (Map Uid RetrievedMusicEvent)
-getEvents from to _ _ = asks go
+getEvents from to genIncl genExcl = asks go
   where
-    go EventStore{..} = Map.map dereference $ limmitByDate events
+    go EventStore{..} = Map.map dereference $ filterEvents events
       where
-        limmitByDate = Map.filterWithKey (\ k _ -> Set.member k uids)
+        -- limmitByGenrePos = case genIncl of
+        --     [] -> id
+        --     s -> id
 
-        uids = Set.map _snd $ between from' to' uidsAndDates
+        -- limmitByGenreNeg = case genExcl of
+        --     [] -> id
+        --     s -> Map.filterWithKey
+
+        findAllByGenres = Set.unions . fmap (\ u -> Map.findWithDefault Set.empty u uidsByGenre)
+
+        filterEvents = Map.filterWithKey (\ k _ -> Set.member k uids)
+
+        filterUidsByGenreIncl = case genIncl of
+            [] -> id
+            _ -> Set.intersection $ findAllByGenres genIncl
+
+        filterUidsByGenreExcl = case genExcl of
+            [] -> id
+            _ -> flip Set.difference $ findAllByGenres genExcl
+
+        uids = filterUidsByGenreExcl
+            . filterUidsByGenreIncl
+            . Set.map _snd
+            $ between from' to' uidsAndDates
 
         dereference e@MusicEvent{..} = e
-            { meGenres = map (findIn genres) meGenres
+            { meGenres = findIn genres <$> meGenres
             , mePlace = findIn places mePlace
             }
 

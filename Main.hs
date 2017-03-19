@@ -10,7 +10,6 @@ import Data.Monoid ((<>))
 import Data.String (fromString)
 
 import Data.Acid
-import qualified Data.ByteString.Lazy as BSL
 import qualified Data.ByteString.Lazy.Char8 as BSL8
 import Data.Default (def)
 import qualified Data.Map.Strict as Map
@@ -19,7 +18,6 @@ import qualified Data.Text.Lazy as Text.Lazy (unpack)
 import qualified Data.Text.Lazy.Encoding as Text.Lazy (encodeUtf8, decodeUtf8)
 import Data.Time
     ( addDays
-    , addGregorianMonthsClip
     , fromGregorian
     , getCurrentTime
     , toGregorian
@@ -168,7 +166,11 @@ main = withEventStore $ \ st -> do
             mapM_ f nextPageUrl
     f "http://www.mestohudby.cz/calendar/all/list"
     (from, to) <- (mkFrom &&& mkTo) . utctDay <$> getCurrentTime
-    es <- query st $ GetEvents (Just from) (Just to) [] []
+    es <- query st $ GetEvents
+        (Just from)
+        (Just to)
+        ["klasicka-hudba", "jazz", "clubbing", "ostatni"]
+        []
     print $ length es
     BSL8.writeFile "bmh.ical" . printICalendar def $ def
         { vcEvents = Map.mapKeysMonotonic (flip (,) Nothing . fromString)
