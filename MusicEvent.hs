@@ -14,11 +14,13 @@ import Network.URI (URI)
 
 import Hack ()
 
+type Uid = String
+
 data MusicEvent = MusicEvent
     { meCreated :: UTCTime
     , meSummary :: String
     , meStart :: LocalTime
-    , meUid :: String -- Most likely just number, or place"/"number
+    , meUid :: Uid -- Most likely just number, or place"/"number
     , meUrl :: URI
     , meGenres :: [String] -- Like ["klasicka-hudba", "pop"]
     , mePlace :: String -- Like "Sono centrum"

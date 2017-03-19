@@ -25,13 +25,34 @@ import Data.Acid
 import Data.Typeable
 
 import CachingGet (getCached)
-import MusicEvent (MusicEvent(..))
+import EventStore
+import MusicEvent (MusicEvent(..), Uid)
 import TimeHelper (readDate)
 
 
 getDoc url = parseHtml' <$> getCached url
   where
     parseHtml' = parseHtml . Text.Lazy.unpack . Text.Lazy.decodeUtf8
+
+url2uid :: String -> Uid
+url2uid = reverse . takeWhile isDigit . reverse
+
+addEvent :: AcidState EventStore -> String -> IO ()
+addEvent st url = do
+    b <- query st . IsEvent $ url2uid url
+    unless b $ do
+        putStrLn $ "Fetching event " <> url
+        fetchEvent url >>= update st . InsertEvent
+
+ex = withEventStore $ \ st -> do
+    let f url = do
+            doc <- getDoc url
+            links <- runX $ doc >>> css ".event h2 a" ! "href"
+            mapM_ (addEvent st) links
+            nextPageUrl <- fmap (lookup "další") . runX
+                $ doc >>> css ".pager a" >>> (deep getText &&& getAttrValue "href")
+            mapM_ f nextPageUrl
+    f "http://www.mestohudby.cz/calendar/all/list"
 
 exampfel :: IO ()
 exampfel = f "http://www.mestohudby.cz/calendar/all/list" where
@@ -48,7 +69,7 @@ fetchEvent :: String -> IO MusicEvent
 fetchEvent url = do
     doc <- getDoc url
     let extractWith e f = fmap e . runX $ doc >>> f
-        extract' = extractWith head
+        extract' = extractWith (fromMaybe "unknown" . listToMaybe)
         extract = extractWith id
     mkMusicEvent
         <$> getCurrentTime
@@ -64,7 +85,7 @@ fetchEvent url = do
   where
     parsedUrl = maybe (fail $ "bad uri: " <> show url) pure $ parseURI url
 
-    uid = reverse . takeWhile isDigit $ reverse url
+    uid = url2uid url
 
     mkMusicEvent c smr strt u multi addr dsc = MusicEvent
         { meCreated = c
