@@ -32,7 +32,7 @@ import TimeHelper (readDate)
 
 getDoc url = parseHtml' <$> getCached url
   where
-    parseHtml' = parseHtml . Text.Lazy.unpack . Text.Lazy.decodeUtf8
+    parseHtml' = parseHtml . filter ('\r'/=) . Text.Lazy.unpack . Text.Lazy.decodeUtf8
 
 url2uid :: String -> Uid
 url2uid = reverse . takeWhile isDigit . reverse
