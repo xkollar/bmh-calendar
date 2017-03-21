@@ -15,7 +15,8 @@ import Data.String (fromString)
 
 import Control.Monad.Freer
 import Control.Monad.Freer.Reader
-import Data.Acid hiding (query, update)
+-- import Data.Acid hiding (query, update)
+import qualified Data.ByteString.Lazy as BSL
 import qualified Data.ByteString.Lazy.Char8 as BSL8
 import Data.Default (def)
 import qualified Data.Map.Strict as Map
@@ -35,7 +36,9 @@ import Text.HandsomeSoup
 import Text.ICalendar
 import Text.XML.HXT.Core hiding (multi, trace)
 
-import CachingGet (getCached, getDirect)
+import Tools.Delayed (delayed)
+import Tools.Cached (cached)
+import Tools.TweakedHttpGet (get)
 import EventStore
     ( EventStore
     , GetEvents(GetEvents)
@@ -54,13 +57,10 @@ import MusicEvent
 import TimeHelper (readDate)
 import Effects.Acid (AcidAccess, query, update)
 import Effects.HttpClient (HttpClient, httpGet, runHttpClient)
-import Effects.Trace (runTraceIO, runTraceSilent, trace)
-import qualified Effects.Trace (Trace)
+import Effects.Trace (StringTrace, runTraceIO, trace)
 
 
-type Trace = Effects.Trace.Trace String
-
-log :: Member Trace r => String -> Eff r ()
+log :: Member StringTrace r => String -> Eff r ()
 log = trace
 
 getDoc :: Member HttpClient r => String -> Eff r (IOSArrow b (NTree XNode))
@@ -113,7 +113,7 @@ fetchEvent url = do
     cutGenre = reverse . takeWhile ('/'/=) . reverse
 
 addEvent
-    :: Members '[AcidAccess EventStore, HttpClient, Trace, IO] r
+    :: Members '[AcidAccess EventStore, HttpClient, StringTrace, IO] r
     => String -> Eff r ()
 addEvent url = do
     b <- query . IsEvent $ url2uid url
@@ -175,7 +175,7 @@ musicEvent2VEvent MusicEvent{..} = VEvent
     }
 
 fetchAndStore
-    :: Members '[IO, Trace, HttpClient, AcidAccess EventStore] r
+    :: Members '[IO, StringTrace, HttpClient, AcidAccess EventStore] r
     => String -> Eff r ()
 fetchAndStore start = do
     doc <- getDoc start
@@ -187,7 +187,7 @@ fetchAndStore start = do
     pagerLinks = css ".pager a" >>> (deep getText &&& getAttrValue "href")
 
 magic
-    :: Members '[IO, Trace, HttpClient, AcidAccess EventStore] r
+    :: Members '[IO, StringTrace, HttpClient, AcidAccess EventStore] r
     => Eff r ()
 magic = do
     fetchAndStore "http://www.mestohudby.cz/calendar/all/list"
@@ -217,7 +217,9 @@ magic = do
 main :: IO ()
 main = withEventStore $ \ st -> runM
     . runTraceIO
-    . runHttpClient (send . getCached)
-    -- . runHttpClient (send . getDirect)
+    . runHttpClient myGet
     . flip runReader st
     $ magic
+  where
+    myGet :: Members '[StringTrace, IO] r => String -> Eff r BSL.ByteString
+    myGet = cached "web_cache" $ delayed 2 . get
