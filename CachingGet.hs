@@ -1,5 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
-module CachingGet (getCached) where
+module CachingGet (getCached, getDirect) where
 
 import Data.Monoid ((<>))
 
@@ -24,8 +24,8 @@ myOpts = defaults
   where
     noCheck = Just $ \ _ _ _ -> Nothing
 
-myGet :: String -> IO BSL.ByteString
-myGet url = do
+getDirect :: String -> IO BSL.ByteString
+getDirect url = do
     res <- getWith myOpts url
     pure $ res ^. responseBody
 
@@ -44,7 +44,7 @@ getCached url = do
             putStrLn $ "Cached miss: " <> url
             createDirectoryIfMissing True cacheDir
             writeFile (cacheFile <> ".url") url
-            c <- delayed 2 (myGet url)
+            c <- delayed 2 (getDirect url)
             BSL.writeFile cacheFile c
             pure c
 

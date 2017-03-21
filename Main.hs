@@ -1,5 +1,9 @@
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
+
+import Prelude hiding (log)
 
 import Control.Arrow
 import Control.Monad
@@ -9,7 +13,9 @@ import Data.Maybe
 import Data.Monoid ((<>))
 import Data.String (fromString)
 
-import Data.Acid
+import Control.Monad.Freer
+import Control.Monad.Freer.Reader
+import Data.Acid hiding (query, update)
 import qualified Data.ByteString.Lazy.Char8 as BSL8
 import Data.Default (def)
 import qualified Data.Map.Strict as Map
@@ -23,12 +29,13 @@ import Data.Time
     , toGregorian
     , utctDay
     )
+import Data.Tree.NTree.TypeDefs
 import Network.URI (parseURI)
 import Text.HandsomeSoup
 import Text.ICalendar
-import Text.XML.HXT.Core hiding (multi)
+import Text.XML.HXT.Core hiding (multi, trace)
 
-import CachingGet (getCached)
+import CachingGet (getCached, getDirect)
 import EventStore
     ( EventStore
     , GetEvents(GetEvents)
@@ -45,22 +52,32 @@ import MusicEvent
     , Uid
     )
 import TimeHelper (readDate)
+import Effects.Acid (AcidAccess, query, update)
+import Effects.HttpClient (HttpClient, httpGet, runHttpClient)
+import Effects.Trace (runTraceIO, runTraceSilent, trace)
+import qualified Effects.Trace (Trace)
 
 
-getDoc url = parseHtml' <$> getCached url
+type Trace = Effects.Trace.Trace String
+
+log :: Member Trace r => String -> Eff r ()
+log = trace
+
+getDoc :: Member HttpClient r => String -> Eff r (IOSArrow b (NTree XNode))
+getDoc url = parseHtml' <$> httpGet url
   where
     parseHtml' = parseHtml . filter ('\r'/=) . Text.Lazy.unpack . Text.Lazy.decodeUtf8
 
 url2uid :: String -> Uid
 url2uid = reverse . takeWhile isDigit . reverse
 
-fetchEvent :: String -> IO CreateMusicEvent
+fetchEvent :: Members '[HttpClient, IO] r => String -> Eff r CreateMusicEvent
 fetchEvent url = do
     doc <- getDoc url
     let extractWith e f = fmap e . runX $ doc >>> f
         extract' = extractWith (fromMaybe "Neuvedeno" . listToMaybe)
         extract = extractWith id
-    mkMusicEvent
+    send $ mkMusicEvent
         <$> getCurrentTime
         <*> (extract' $ css "h1" //> getText)
         <*> ((extract' $ css ".eta" /> getText) >>= readDate)
@@ -95,12 +112,14 @@ fetchEvent url = do
 
     cutGenre = reverse . takeWhile ('/'/=) . reverse
 
-addEvent :: AcidState EventStore -> String -> IO ()
-addEvent st url = do
-    b <- query st . IsEvent $ url2uid url
+addEvent
+    :: Members '[AcidAccess EventStore, HttpClient, Trace, IO] r
+    => String -> Eff r ()
+addEvent url = do
+    b <- query . IsEvent $ url2uid url
     unless b $ do
-        putStrLn $ "Fetching & storing event " <> url
-        fetchEvent url >>= update st . InsertEvent
+        log $ "Fetching & storing event " <> url
+        fetchEvent url >>= update . InsertEvent
 
 musicEvent2VEvent :: RetrievedMusicEvent -> VEvent
 musicEvent2VEvent MusicEvent{..} = VEvent
@@ -155,24 +174,31 @@ musicEvent2VEvent MusicEvent{..} = VEvent
     , veOther = def
     }
 
-main :: IO ()
-main = withEventStore $ \ st -> do
-    let f url = do
-            doc <- getDoc url
-            links <- runX $ doc >>> css ".event h2 a" ! "href"
-            mapM_ (addEvent st) links
-            nextPageUrl <- fmap (lookup "další") . runX $ doc >>> pagerLinks
-            -- mapM_ print nextPageUrl
-            mapM_ f nextPageUrl
-    f "http://www.mestohudby.cz/calendar/all/list"
-    (from, to) <- (mkFrom &&& mkTo) . utctDay <$> getCurrentTime
-    es <- query st $ GetEvents
+fetchAndStore
+    :: Members '[IO, Trace, HttpClient, AcidAccess EventStore] r
+    => String -> Eff r ()
+fetchAndStore start = do
+    doc <- getDoc start
+    links <- send . runX $ doc >>> css ".event h2 a" ! "href"
+    mapM_ addEvent links
+    nextPageUrl <- fmap (lookup "další") . send . runX $ doc >>> pagerLinks
+    mapM_ fetchAndStore nextPageUrl
+  where
+    pagerLinks = css ".pager a" >>> (deep getText &&& getAttrValue "href")
+
+magic
+    :: Members '[IO, Trace, HttpClient, AcidAccess EventStore] r
+    => Eff r ()
+magic = do
+    fetchAndStore "http://www.mestohudby.cz/calendar/all/list"
+    (from, to) <- (mkFrom &&& mkTo) . utctDay <$> send getCurrentTime
+    es <- query $ GetEvents
         (Just from)
         (Just to)
         ["klasicka-hudba", "jazz", "clubbing", "ostatni"]
         []
-    print $ length es
-    BSL8.writeFile "bmh.ical" . printICalendar def $ def
+    log . show $ length es
+    send . BSL8.writeFile "bmh.ical" . printICalendar def $ def
         { vcEvents = Map.mapKeysMonotonic (flip (,) Nothing . fromString)
             $ Map.map musicEvent2VEvent es
         , vcOther = Set.singleton OtherProperty
@@ -188,4 +214,10 @@ main = withEventStore $ \ st -> do
 
     mkTo = setGregorianDay 31 . addDays 14
 
-    pagerLinks = css ".pager a" >>> (deep getText &&& getAttrValue "href")
+main :: IO ()
+main = withEventStore $ \ st -> runM
+    . runTraceIO
+    . runHttpClient (send . getCached)
+    -- . runHttpClient (send . getDirect)
+    . flip runReader st
+    $ magic

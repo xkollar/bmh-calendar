@@ -1,10 +1,15 @@
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE NoImplicitPrelude #-}
 module FstOrd where
 
+import Data.Eq (Eq, (==))
 import Data.Function (on)
+import Data.Ord (Ord, compare)
+import Text.Show (Show)
 
-import Data.SafeCopy
+import Data.SafeCopy (base, deriveSafeCopy)
 import Data.Typeable (Typeable)
+
 
 data FstOrd a b = FstOrd
     { _fst :: !a
