@@ -1,12 +1,23 @@
+{-# LANGUAGE NoImplicitPrelude #-}
 module Delayed (delayed) where
 
+import Prelude ((*), round, toRational)
+
+import Control.Applicative (pure)
 import Control.Concurrent (threadDelay)
 import Control.Concurrent.MVar (MVar, newMVar, putMVar, takeMVar)
 import Control.Exception.Base (evaluate)
+import Control.Monad ((>>=))
+import Data.Function (($), (.))
+import Data.Int (Int)
 import Data.Monoid ((<>))
-import System.IO.Unsafe
+import Data.Ord (max)
+import System.IO (IO, putStrLn)
+import System.IO.Unsafe (unsafePerformIO)
+import Text.Show (show)
 
 import Data.Time
+    (NominalDiffTime, UTCTime, addUTCTime, diffUTCTime, getCurrentTime)
 
 nextAllowed :: MVar UTCTime
 nextAllowed = unsafePerformIO $ getCurrentTime >>= newMVar
