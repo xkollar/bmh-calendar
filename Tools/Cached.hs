@@ -1,8 +1,15 @@
+{-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE OverloadedStrings #-}
 module Tools.Cached (cached) where
 
+import Control.Applicative (pure)
+import Control.Monad ((>>=))
+import Data.Bool (Bool(True))
+import Data.Function (($), (.))
 import Data.Monoid ((<>))
+import Data.String (String)
+import System.IO (FilePath, IO, writeFile)
 
 import Control.Monad.Freer (Eff, Members, send)
 import Crypto.Hash.SHA1 (hash)

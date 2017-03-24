@@ -6,7 +6,7 @@
 module Effects.HttpClient where
 
 import Control.Monad ((>>=), return)
-import Data.Either
+import Data.Either (Either(Left, Right))
 import Data.Function ((.))
 import Data.String (String)
 import System.IO (IO)

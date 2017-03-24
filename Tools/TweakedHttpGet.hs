@@ -1,8 +1,14 @@
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE OverloadedStrings #-}
 module Tools.TweakedHttpGet (get) where
 
+import Control.Applicative (pure)
+import Data.Function (($))
+import Data.Maybe (Maybe(Just, Nothing))
 import Data.Monoid ((<>))
+import Data.String (String)
+import System.IO (IO)
 
 import Control.Lens ((&), (.~), (^.))
 import Control.Monad.Freer (Eff, Members, send)

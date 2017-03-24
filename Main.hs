@@ -197,7 +197,7 @@ magic = do
         (Just to)
         ["klasicka-hudba", "jazz", "clubbing", "ostatni"]
         []
-    log . show $ length es
+    log $ "Number of events to be rendered: " <> show (length es)
     send . BSL8.writeFile "bmh.ical" . printICalendar def $ def
         { vcEvents = Map.mapKeysMonotonic (flip (,) Nothing . fromString)
             $ Map.map musicEvent2VEvent es
@@ -222,4 +222,5 @@ main = withEventStore $ \ st -> runM
     $ magic
   where
     myGet :: Members '[StringTrace, IO] r => String -> Eff r BSL.ByteString
-    myGet = cached "web_cache" $ delayed 2 . get
+    -- myGet = cached "web_cache" $ delayed 5 . get
+    myGet = delayed 5 . get

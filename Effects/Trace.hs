@@ -9,12 +9,13 @@ module Effects.Trace where
 import Control.Monad ((>>=), return)
 import Data.Either (Either(Left, Right))
 import Data.Function (($), (.), const)
+import Data.Functor ((<$>))
+import Data.List (take)
 import Data.String (String)
 import System.IO (IO)
 import Text.Printf (printf)
-import Text.Show (show)
 
-import Data.Time (getCurrentTime)
+import Data.Time (getCurrentTime, formatTime, defaultTimeLocale)
 
 import Control.Monad.Freer.Internal
     (Eff(E, Val), Member, decomp, qApp, send, tsingleton)
@@ -39,8 +40,8 @@ runTraceIO :: Member IO effs => Eff (Trace String ': effs) a -> Eff effs a
 runTraceIO = runTrace f
   where
     f s = send $ do
-        t <- getCurrentTime
-        printf "[%s]: %s\n" (show t) s
+        t <- take 23 . formatTime defaultTimeLocale "%Y-%m-%dT%H:%M:%S.%0q" <$> getCurrentTime
+        printf "[%s]: %s\n" t s
 
 runTraceSilent :: forall proxy effs s a . proxy s -> Eff (Trace s ': effs) a -> Eff effs a
 runTraceSilent p = runTrace (f p)
