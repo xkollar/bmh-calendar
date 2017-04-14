@@ -192,6 +192,7 @@ magic
 magic = do
     fetchAndStore "http://www.mestohudby.cz/calendar/all/list"
     (from, to) <- (mkFrom &&& mkTo) . utctDay <$> send getCurrentTime
+    log $ "Rendering events from " <> show from <> " to " <> show to
     es <- query $ GetEvents
         (Just from)
         (Just to)
